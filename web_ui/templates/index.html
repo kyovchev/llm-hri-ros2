@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Intelligent Robot Dispatcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 p-6">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-6">
+      <h1 class="text-2xl font-bold mb-4 mx-auto text-center">
+        Intelligent Robot Dispatcher
+      </h1>
+
+      <canvas
+        id="map"
+        width="500"
+        height="500"
+        class="border mb-4 mx-auto"
+      ></canvas>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            for="modeSelect"
+            class="block text-sm font-medium text-gray-700"
+            >Mode</label
+          >
+          <select id="modeSelect" class="w-full border rounded p-2">
+            <option value="tool">prompt with tool</option>
+            <option value="simple">prompt: simple</option>
+            <option value="advanced">prompt: advanced</option>
+            <option value="expert">prompt: expert</option>
+          </select>
+        </div>
+        <div>
+          <label
+            for="modelSelect"
+            class="block text-sm font-medium text-gray-700"
+            >Model</label
+          >
+          <select id="modelSelect" class="w-full border rounded p-2">
+            <option>llama3.2:3b</option>
+            <option>deepseek-r1:1.5b</option>
+            <option>deepseek-r1:8b</option>
+            <option>gemma3:4b</option>
+            <option>mistral:7b</option>
+            <option>mistral-small:24b</option>
+            <option>mistral-small3.2:24b</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-1 mb-1">
+        <div
+          id="chatLog"
+          class="bg-gray-50 border p-4 rounded h-48 overflow-y-auto text-sm whitespace-pre-line"
+        ></div>
+      </div>
+      <div id="prompt" class="flex gap-4">
+        <input
+          id="promptInput"
+          type="text"
+          placeholder="Write a task..."
+          class="flex-1 border p-2 rounded"
+        />
+        <button
+          onclick="sendPrompt()"
+          class="bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Send
+        </button>
+      </div>
+
+      <div
+        id="loader"
+        class="hidden flex items-center text-gray-600 text-sm ml-2"
+      >
+        <svg
+          class="animate-spin h-5 w-5 mr-2 text-blue-500"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            class="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            stroke-width="4"
+          ></circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+          />
+        </svg>
+        Processing your request. Please, wait...
+      </div>
+    </div>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"
+    ></script>
+    <script src="/static/script.js"></script>
+  </body>
+</html>
