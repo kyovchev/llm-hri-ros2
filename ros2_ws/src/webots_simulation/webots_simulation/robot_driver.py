@@ -9,7 +9,9 @@ WHEEL_RADIUS = 0.025
 
 
 class RobotDriver:
-    def init(self, webots_node):
+    def init(self, webots_node, parameters):
+        parameters
+
         self.__robot = webots_node.robot
 
         self.__left_motor = self.__robot.getDevice('left wheel motor')
