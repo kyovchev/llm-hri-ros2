@@ -8,7 +8,6 @@ import traceback
 from std_msgs.msg import String
 
 
-
 class PromptExecutor(Node):
 
     def __init__(self):
@@ -49,9 +48,9 @@ class PromptExecutor(Node):
                 'function': self.dispatch_robot,
                 'description': 'Dispatch the closest robot to pick up an item and deliver it to a station',
                 'parameters': {
-                        'item': {'type': 'string', 'description': 'The item to be picked up (A, B, C, D, etc.)'},
-                        'station': {'type': 'string', 'description': 'The delivery station (S1, S2, S3, S4, S5, S6, etc.)'}
-                    }
+                    'item': {'type': 'string', 'description': 'The item to be picked up (A, B, C, D, etc.)'},
+                    'station': {'type': 'string', 'description': 'The delivery station (S1, S2, S3, S4, S5, S6, etc.)'}
+                }
             }
         }
 
@@ -61,15 +60,15 @@ class PromptExecutor(Node):
         station = json.loads(msg.data)
         self.stations[station['station_id']] = station
         if station['item'] != '-':
-            self.items[station['item']] = {'name': station['item'], 'pos': [station['x'], station['y']]}
+            self.items[station['item']] = {
+                'name': station['item'], 'pos': [station['x'], station['y']]}
 
     def calc_distances(self):
-        return {i: [p[0] for p in sorted([[r, math.hypot(rd['x']-id['pos'][0],rd['y']-id['pos'][1])] for (r,rd) in self.robots.items()], key=lambda v: v[1])] for (i,id) in self.items.items()}
+        return {i: [p[0] for p in sorted([[r, math.hypot(rd['x']-id['pos'][0], rd['y']-id['pos'][1])] for (r, rd) in self.robots.items()], key=lambda v: v[1])] for (i, id) in self.items.items()}
 
     def robot_status_callback(self, msg):
         robot = json.loads(msg.data)
         self.robots[robot['robot_id']] = robot
-
 
     def listener_callback(self, msg):
         request = json.loads(msg.data)
@@ -82,11 +81,14 @@ class PromptExecutor(Node):
         }
 
         if request['mode'] == 'simple':
-            requestData['prompt'] = self.generate_simple_prompt(request['input'])
+            requestData['prompt'] = self.generate_simple_prompt(
+                request['input'])
         elif request['mode'] == 'advanced':
-            requestData['prompt'] = self.generate_advanced_prompt(request['input'])
+            requestData['prompt'] = self.generate_advanced_prompt(
+                request['input'])
         elif request['mode'] == 'expert':
-            requestData['prompt'] = self.generate_expert_prompt(request['input'])
+            requestData['prompt'] = self.generate_expert_prompt(
+                request['input'])
         elif request['mode'] == 'tool':
             requestData['messages'] = [
                 {
@@ -100,16 +102,19 @@ class PromptExecutor(Node):
             case 'deepseek-r1:1.5b':
                 requestData['think'] = False
 
-        self.get_logger().info(f'PROMPT:\n{requestData['messages' if request['mode'] == 'tool' else 'prompt']}\n----------\n')
-        r = requests.post(f'{self.ollama_api}/api/{'chat' if request['mode'] == 'tool' else 'generate'}', json=requestData)
+        self.get_logger().info(
+            f'PROMPT:\n{requestData['messages' if request['mode'] == 'tool' else 'prompt']}\n----------\n')
+        r = requests.post(
+            f'{self.ollama_api}/api/{'chat' if request['mode'] == 'tool' else 'generate'}', json=requestData)
 
         if r.status_code != requests.codes.ok:
-            self.get_logger().error(f'CONNECTION ERROR {r.status_code}: {r.text}')
+            self.get_logger().error(
+                f'CONNECTION ERROR {r.status_code}: {r.text}')
             msg = String()
             msg.data = f'Error {r.status_code}: {r.text}'
             self.publisher_.publish(msg)
             return
-        
+
         try:
             response = r.json()
             self.get_logger().info(f'RESPONSE:\n{response}\n----------\n')
@@ -123,7 +128,6 @@ class PromptExecutor(Node):
             msg.data = 'Error: Cannot understand you!'
             self.publisher_.publish(msg)
             return
-        
 
         try:
             result_dict = json.loads(result)
@@ -146,17 +150,20 @@ class PromptExecutor(Node):
             pass
         if not data:
             try:
-                data = json.loads(response['response'][response['response'].find('```json')+7:response['response'].find('}\n```')])
+                data = json.loads(response['response'][response['response'].find(
+                    '```json')+7:response['response'].find('}\n```')])
             except:
                 pass
         if not data:
             try:
-                data = json.loads(response['response'][response['response'].find('```json')+7:response['response'].find('}```')])
+                data = json.loads(response['response'][response['response'].find(
+                    '```json')+7:response['response'].find('}```')])
             except:
                 pass
         if not data:
             try:
-                data = json.loads(response['response'][response['response'].find('```json')+7:response['response'].find('} ```')])
+                data = json.loads(response['response'][response['response'].find(
+                    '```json')+7:response['response'].find('} ```')])
             except:
                 pass
         if not data:
@@ -173,11 +180,11 @@ class PromptExecutor(Node):
                     station = data['parameters']['delivery_station']
                     result = self.dispatch_robot(item=item, station=station)
             else:
-                if data['action'] == 'navigate': 
+                if data['action'] == 'navigate':
                     result = json.dumps(data)
 
         return result
-    
+
     def process_tool_response(self, response):
         result = json.dumps({'reasoning': 'Error: Cannot understand you!'})
 
@@ -191,12 +198,12 @@ class PromptExecutor(Node):
                 function_args = function_info.get("arguments", {})
                 if isinstance(function_args, str):
                     function_args = json.loads(function_args)
-                result = self.execute_tool(self.tools, function_name, function_args)
+                result = self.execute_tool(
+                    self.tools, function_name, function_args)
         except:
             pass
 
         return result
-            
 
     def get_tool_definitions(self, tools):
         tool_definitions = []
@@ -231,12 +238,15 @@ class PromptExecutor(Node):
             return json.dumps({'action': 'not_found', 'parameters': {}, 'reasoning': 'Error: Wrong item or station.'})
 
         item_position = self.items[item]['pos']
-        station_position = [self.stations[station]['x'], self.stations[station]['y']]
+        station_position = [self.stations[station]
+                            ['x'], self.stations[station]['y']]
 
-        available_robots = [robot for robot in list(self.robots.values()) if robot['available']]
+        available_robots = [robot for robot in list(
+            self.robots.values()) if robot['available']]
         if not available_robots:
             return json.dumps({'action': 'robots_not_available', 'parameters': {}, 'reasoning': 'Error: No robots are available.'})
-        closest_robot = min([[r['robot_id'], int(10 * math.hypot(r['x'] - self.items[item]['pos'][0], r['y'] - self.items[item]['pos'][1])) / 10] for r in available_robots], key=lambda v: v[1])
+        closest_robot = min([[r['robot_id'], int(10 * math.hypot(r['x'] - self.items[item]['pos'][0],
+                            r['y'] - self.items[item]['pos'][1])) / 10] for r in available_robots], key=lambda v: v[1])
         closest_robot = closest_robot[0]
 
         return json.dumps({
@@ -271,22 +281,21 @@ Examples:
 Return only JSON. No other text. [/INST]
 """
 
-
     def generate_advanced_prompt(self, msg):
         return f"""
 [INST] You are a robot dispatcher. The task is to dispatch a robot to get an item from the item position and to move it to specified delivery station position. You need to fetch from the user input the requested item and the delivery station. If you cannot find the item or the delivery station, then return action "not_found". After you have found the positions of the item and the delivery station, then you need to find the first robot from with status set to "available" which is in the ordered list of the robots closest to the item. If there is no robot with available status return the action "robots_not_available" action. Return the found item position and delivery station position in the JSON.
 
 Available items: {json.dumps(list(self.items.keys()))}
 
-Positions of the items: {json.dumps({k : v['pos'] for (k, v) in list(self.items.items())})}
+Positions of the items: {json.dumps({k: v['pos'] for (k, v) in list(self.items.items())})}
 
 Available delivery station: {json.dumps(list(self.stations.keys()))}
 
-Positions of the delivery stations: {json.dumps({k : [v['x'], v['y']] for (k, v) in list(self.stations.items())})}
+Positions of the delivery stations: {json.dumps({k: [v['x'], v['y']] for (k, v) in list(self.stations.items())})}
 
-Status of the robots: {json.dumps({k : 'available' if v['available'] else 'busy' for (k, v) in list(self.robots.items())})}
+Status of the robots: {json.dumps({k: 'available' if v['available'] else 'busy' for (k, v) in list(self.robots.items())})}
 
-Ordered list of the robots closest to the item: {json.dumps({ki : [v[0] for v in sorted([[kr, int(10 * math.hypot(kv['x'] - vi['pos'][0], kv['y'] - vi['pos'][1])) / 10] for (kr, kv) in list(self.robots.items())], key=lambda v: v[1])] for (ki, vi) in list(self.items.items())})}
+Ordered list of the robots closest to the item: {json.dumps({ki: [v[0] for v in sorted([[kr, int(10 * math.hypot(kv['x'] - vi['pos'][0], kv['y'] - vi['pos'][1])) / 10] for (kr, kv) in list(self.robots.items())], key=lambda v: v[1])] for (ki, vi) in list(self.items.items())})}
 
 Available actions: navigate, robots_not_available, not_found
 
@@ -300,22 +309,21 @@ Examples:
 Return only JSON. No other text. [/INST]
 """
 
-
     def generate_expert_prompt(self, msg):
         return f"""
 [INST] You are a robot dispatcher. The task is to dispatch a robot to get an item from the item position and to move it to specified delivery station position. You need to fetch from the user input the requested item and the delivery station. If you cannot find the item or the delivery station, then return action "not_found". After you have found the positions of the item and the delivery station, then you need to find the closest to the item position robot with status set to "available". The distance between the positions of the robot [x1, y1] and the position of the item [x2, y2] is measured with Euclidean distance as distance([x1,y1], [x2,y2]) = sqrt((x1 - x2)*(x1 - x2)+(y1 - y2)*(y1 - y2)). If there is no robot with available status return the action "robots_not_available" action. Return the found item position and delivery station position in the JSON.
 
 Available items: {json.dumps(list(self.items.keys()))}
 
-Positions of the items: {json.dumps({k : v['pos'] for (k, v) in list(self.items.items())})}
+Positions of the items: {json.dumps({k: v['pos'] for (k, v) in list(self.items.items())})}
 
 Available delivery stations: {json.dumps(list(self.stations.keys()))}
 
-Positions of the delivery stations: {json.dumps({k : [v['x'], v['y']] for (k, v) in list(self.stations.items())})}
+Positions of the delivery stations: {json.dumps({k: [v['x'], v['y']] for (k, v) in list(self.stations.items())})}
 
-Status of the robots: {json.dumps({k : 'available' if v['available'] else 'busy' for (k, v) in list(self.robots.items())})}
+Status of the robots: {json.dumps({k: 'available' if v['available'] else 'busy' for (k, v) in list(self.robots.items())})}
 
-Position of the robots: {json.dumps({k : [v['x'], v['y']] for (k, v) in list(self.robots.items())})}
+Position of the robots: {json.dumps({k: [v['x'], v['y']] for (k, v) in list(self.robots.items())})}
 
 Available actions: navigate, robots_not_available, not_found
 
@@ -328,7 +336,7 @@ Examples:
 
 Return only JSON. No other text. [/INST]
 """
-        
+
     def generate_tool_prompt(self, msg):
         return f"""
 You are a robot dispatcher assistant. Extract the item to be moved and the destination station from the user's instruction if they exists. Then use the dispatch_robot tool to generate navigation instructions.

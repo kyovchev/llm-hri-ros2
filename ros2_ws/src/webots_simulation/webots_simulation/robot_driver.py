@@ -1,5 +1,6 @@
 import rclpy
 from std_msgs.msg import String
+from geometry_msgs.msg import PointStamped, Vector3Stamped
 import math
 import json
 
@@ -21,8 +22,8 @@ class RobotDriver:
 
         self.__gps = self.__robot.getDevice('gps')
         self.__compass = self.__robot.getDevice('compass')
-        self.__gps.enable(16)
-        self.__compass.enable(16)
+        self.__gps.enable(1024)
+        self.__compass.enable(1024)
 
         self.__left_motor.setPosition(float('inf'))
         self.__left_motor.setVelocity(0)
@@ -37,6 +38,14 @@ class RobotDriver:
         self.__node = rclpy.create_node(f'{self.__id}_driver')
         self.__node.create_subscription(
             String, 'cmd_pos', self.__cmd_pos_callback, 1)
+
+        self.__node.create_subscription(
+            PointStamped, f'/{self.__id}/gps', self.__gps_callback, 1)
+        self.__coords = None
+
+        self.__node.create_subscription(
+            Vector3Stamped, f'/{self.__id}/compass/north_vector', self.__compass_callback, 1)
+        self.__rad = None
 
         self.__status = None
         self.__status_publisher = self.__node.create_publisher(
@@ -64,15 +73,17 @@ class RobotDriver:
         except:
             self.__node.get_logger().error(f'Data error: {msg.data}')
 
+    def __gps_callback(self, msg):
+        self.__coords = [msg.point.x, msg.point.y]
+
+    def __compass_callback(self, msg):
+        self.__rad = math.atan2(msg.vector.y, msg.vector.x) + 2 * math.pi
+
     def step(self):
         rclpy.spin_once(self.__node, timeout_sec=0)
 
-        coords = self.__gps.getValues()
-        north = self.__compass.getValues()
-        rad = math.atan2(north[1], north[0]) + 2 * math.pi
-
-        if not self.__home:
-            self.__home = [coords[0], coords[1]]
+        if not self.__home and self.__coords:
+            self.__home = [self.__coords[0], self.__coords[1]]
 
         pos = self.__pickup or self.__drop_off
 
@@ -86,14 +97,14 @@ class RobotDriver:
 
         try:
             if pos:
-                drad = math.atan2(pos[0] - coords[0],
-                                  pos[1] - coords[1]) + 2 * math.pi
+                drad = math.atan2(pos[0] - self.__coords[0],
+                                  pos[1] - self.__coords[1]) + 2 * math.pi
 
-                if drad > rad + 0.02:
+                if drad > self.__rad + 0.02:
                     angular_speed = -0.15
-                elif drad < rad - 0.02:
+                elif drad < self.__rad - 0.02:
                     angular_speed = 0.15
-                elif math.hypot(pos[1] - coords[1], pos[0] - coords[0]) > 0.01:
+                elif math.hypot(pos[1] - self.__coords[1], pos[0] - self.__coords[0]) > 0.01:
                     forward_speed = 0.1
                 else:
                     if self.__pickup:
@@ -109,23 +120,22 @@ class RobotDriver:
                 self.__left_motor.setVelocity(command_motor_left)
                 self.__right_motor.setVelocity(command_motor_right)
             else:
-                self.__node.get_logger().error(
-                    f'Error with pickup: {self.__pickup} or drop_off: {self.__drop_off}')
                 self.__pickup = None
                 self.__drop_off = None
         except:
             pass
 
-        status = {
-            'robot_id': self.__id,
-            'x': coords[0],
-            'y': coords[1],
-            'available': (forward_speed == 0 and angular_speed == 0) or go_to_home
-        }
+        if self.__coords:
+            status = {
+                'robot_id': self.__id,
+                'x': self.__coords[0],
+                'y': self.__coords[1],
+                'available': (forward_speed == 0 and angular_speed == 0) or go_to_home
+            }
 
-        if not self.__status or abs(self.__status['x'] - status['x']) > 0.005 or abs(self.__status['y'] - status['y']) > 0.005 or self.__status['available'] != status['available']:
-            self.__status = status
+            if not self.__status or abs(self.__status['x'] - status['x']) > 0.005 or abs(self.__status['y'] - status['y']) > 0.005 or self.__status['available'] != status['available']:
+                self.__status = status
 
-            msg = String()
-            msg.data = json.dumps(status)
-            self.__status_publisher.publish(msg)
+                msg = String()
+                msg.data = json.dumps(status)
+                self.__status_publisher.publish(msg)

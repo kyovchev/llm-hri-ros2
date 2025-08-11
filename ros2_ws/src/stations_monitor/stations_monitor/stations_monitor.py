@@ -5,7 +5,6 @@ from rclpy.node import Node
 from std_msgs.msg import String
 
 
-
 class StationsMonitor(Node):
 
     def __init__(self):
@@ -26,12 +25,12 @@ class StationsMonitor(Node):
             {'station_id': 'S5', 'x': -0.8, 'y':  0.6, 'item': '-'},
             {'station_id': 'S6', 'x':  0.5, 'y': -1.1, 'item': '-'},
         ]
-    
+
         for i in range(len(stations)):
             msg = String()
             msg.data = json.dumps(stations[i])
             self.publisher_.publish(msg)
-        
+
 
 def main(args=None):
     rclpy.init(args=args)
